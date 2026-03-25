@@ -1,0 +1,918 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Трекер задач</title>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f5f4f0;
+  --surface:#ffffff;
+  --surface2:#f0efe9;
+  --surface3:#e8e7e0;
+  --border:#dddbd2;
+  --border2:#cccac0;
+  --text:#1a1916;
+  --text2:#6b6a63;
+  --text3:#9e9d96;
+  --accent:#2d6a4f;
+  --accent-l:#e8f4ee;
+  --accent-d:#1b4332;
+  --blue:#1a5b8a;
+  --blue-l:#e3eff8;
+  --amber:#7d4e00;
+  --amber-l:#fdf0d5;
+  --red:#8b2020;
+  --red-l:#fbeaea;
+  --pink:#7a2d5a;
+  --pink-l:#f7e8f2;
+  --r:8px;
+  --r-lg:12px;
+  --shadow:0 1px 3px rgba(0,0,0,.08),0 4px 12px rgba(0,0,0,.05);
+  --shadow-lg:0 4px 20px rgba(0,0,0,.12),0 1px 4px rgba(0,0,0,.06);
+}
+
+body{font-family:'Onest',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:14px}
+
+/* TOPBAR */
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);height:54px;display:flex;align-items:center;padding:0 20px;gap:16px;position:sticky;top:0;z-index:50}
+.logo{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:600;letter-spacing:-.3px;color:var(--text)}
+.logo-icon{width:28px;height:28px;background:var(--accent);border-radius:7px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px}
+.nav{display:flex;gap:2px;margin-left:auto}
+.nav-btn{padding:6px 14px;border-radius:var(--r);font-size:13px;font-weight:500;cursor:pointer;color:var(--text2);border:none;background:transparent;font-family:'Onest',sans-serif;transition:all .15s}
+.nav-btn:hover{background:var(--surface2);color:var(--text)}
+.nav-btn.active{background:var(--surface2);color:var(--text)}
+
+/* LAYOUT */
+.layout{display:flex;height:calc(100vh - 54px);overflow:hidden}
+.sidebar{width:210px;background:var(--surface);border-right:1px solid var(--border);padding:16px 12px;flex-shrink:0;overflow-y:auto;display:flex;flex-direction:column;gap:4px}
+.sidebar-label{font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;padding:4px 8px;margin-top:8px}
+.sidebar-label:first-child{margin-top:0}
+.proj-item{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:var(--r);cursor:pointer;font-size:13px;color:var(--text2);transition:all .12s;user-select:none}
+.proj-item:hover{background:var(--surface2);color:var(--text)}
+.proj-item.active{background:var(--accent-l);color:var(--accent);font-weight:500}
+.proj-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.proj-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.proj-del{width:16px;height:16px;display:flex;align-items:center;justify-content:center;border-radius:4px;font-size:11px;opacity:0;color:var(--text3);transition:.12s}
+.proj-item:hover .proj-del{opacity:1}
+.proj-del:hover{background:var(--red-l);color:var(--red)}
+.add-proj{width:100%;margin-top:4px;padding:7px 10px;font-size:13px;color:var(--text3);background:transparent;border:1px dashed var(--border);border-radius:var(--r);cursor:pointer;text-align:left;font-family:'Onest',sans-serif;transition:all .12s}
+.add-proj:hover{background:var(--surface2);color:var(--text2);border-color:var(--border2)}
+
+.content{flex:1;overflow:hidden;display:flex;flex-direction:column}
+
+/* ── VIEWS ── */
+.view{display:none;flex:1;overflow:hidden;flex-direction:column}
+.view.active{display:flex}
+.view-scroll{overflow-y:auto;padding:20px;flex:1}
+#view-report.active,#view-export.active,#view-cal.active{overflow-y:auto;padding:20px}
+
+/* ── LIST TOOLBAR ── */
+.list-toolbar{display:flex;align-items:center;gap:8px;padding:12px 16px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0}
+.list-title{font-size:14px;font-weight:600;flex:1;color:var(--text)}
+.window-ctrl{display:flex;align-items:center;gap:4px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:3px 6px;font-size:12px;color:var(--text2)}
+.window-ctrl button{width:22px;height:22px;border:none;background:transparent;cursor:pointer;border-radius:4px;color:var(--text2);font-size:14px;display:flex;align-items:center;justify-content:center;line-height:1}
+.window-ctrl button:hover{background:var(--surface);color:var(--text)}
+.window-ctrl span{min-width:52px;text-align:center;font-weight:500;font-size:12px}
+.btn-add-today{padding:7px 14px;background:var(--accent);color:#fff;border:none;border-radius:var(--r);font-size:13px;font-weight:500;cursor:pointer;font-family:'Onest',sans-serif;transition:background .12s}
+.btn-add-today:hover{background:var(--accent-d)}
+.btn-sec{padding:6px 12px;background:var(--surface);color:var(--text2);border:1px solid var(--border);border-radius:var(--r);font-size:13px;cursor:pointer;font-family:'Onest',sans-serif;transition:all .12s}
+.btn-sec:hover{background:var(--surface2);color:var(--text)}
+
+/* ── KANBAN BOARD ── */
+.kanban-board{display:flex;flex:1;overflow-x:auto;overflow-y:hidden;gap:0;padding:0;align-items:stretch}
+.kanban-board::-webkit-scrollbar{height:6px}
+.kanban-board::-webkit-scrollbar-track{background:var(--bg)}
+.kanban-board::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+
+.day-col{flex:0 0 260px;display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--bg);transition:background .12s}
+.day-col:first-child{border-left:none}
+.day-col.today-col{background:#fafff9}
+.day-col.drop-target{background:var(--accent-l)}
+
+.day-col-head{padding:12px 14px 10px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0}
+.day-col-head.today-head{background:#f0faf4;border-bottom-color:#b7dfc9}
+.day-weekday{font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.7px;margin-bottom:2px}
+.day-col-head.today-head .day-weekday{color:var(--accent)}
+.day-date-row{display:flex;align-items:center;gap:6px}
+.day-datenum{font-size:20px;font-weight:600;color:var(--text);line-height:1}
+.day-col-head.today-head .day-datenum{color:var(--accent)}
+.day-monthname{font-size:12px;color:var(--text3);margin-top:2px}
+.today-badge{font-size:9px;background:var(--accent);color:#fff;padding:2px 6px;border-radius:20px;font-weight:700;letter-spacing:.4px;text-transform:uppercase}
+.day-meta{display:flex;align-items:center;gap:6px;margin-top:8px}
+.day-cnt{font-size:11px;background:var(--surface2);color:var(--text3);padding:2px 7px;border-radius:20px;border:1px solid var(--border)}
+.day-add-btn{margin-left:auto;padding:3px 9px;font-size:11px;color:var(--accent);background:transparent;border:1px solid var(--accent);border-radius:5px;cursor:pointer;font-family:'Onest',sans-serif;transition:all .12s;font-weight:500}
+.day-add-btn:hover{background:var(--accent);color:#fff}
+
+.tasks-area{flex:1;overflow-y:auto;padding:8px;display:flex;flex-direction:column;gap:0}
+.tasks-area::-webkit-scrollbar{width:3px}
+.tasks-area::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.empty-hint{color:var(--text3);font-size:11px;text-align:center;padding:20px 8px;line-height:1.5;border:1px dashed var(--border);border-radius:var(--r);margin:4px 0}
+
+/* ── TASK CARDS ── */
+.task-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:10px;margin-bottom:6px;cursor:grab;display:flex;flex-direction:column;gap:5px;transition:border-color .12s,box-shadow .12s,opacity .12s}
+.task-card:last-child{margin-bottom:0}
+.task-card:hover{border-color:var(--border2);box-shadow:var(--shadow)}
+.task-card.dragging{opacity:.3;cursor:grabbing}
+.task-card.done .task-name{text-decoration:line-through;color:var(--text3)}
+.task-card.drop-above{border-top:2px solid var(--accent)}
+.task-card.drop-below{border-bottom:2px solid var(--accent)}
+
+.task-proj-tag{font-size:10px;padding:2px 6px;border-radius:20px;white-space:nowrap;font-weight:600;display:inline-block;width:fit-content}
+.task-row{display:flex;align-items:flex-start;gap:7px}
+.check-circle{width:16px;height:16px;border-radius:50%;border:1.5px solid var(--border2);flex-shrink:0;margin-top:1px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .12s}
+.check-circle:hover{border-color:var(--accent)}
+.check-circle.checked{background:var(--accent);border-color:var(--accent)}
+.check-circle.checked::after{content:'';display:block;width:4px;height:7px;border:1.5px solid #fff;border-top:none;border-left:none;transform:rotate(45deg) translate(-1px,-1px)}
+.task-name{font-size:12px;color:var(--text);flex:1;line-height:1.45;word-break:break-word}
+.task-actions{display:flex;gap:2px;opacity:0;transition:.12s;flex-shrink:0}
+.task-card:hover .task-actions{opacity:1}
+.task-act-btn{width:20px;height:20px;border:none;background:transparent;cursor:pointer;border-radius:3px;font-size:11px;color:var(--text3);display:flex;align-items:center;justify-content:center;transition:all .12s}
+.task-act-btn:hover{background:var(--surface2);color:var(--text)}
+.task-act-btn.del:hover{background:var(--red-l);color:var(--red)}
+.task-comment{font-size:11px;color:var(--text3);padding-left:23px;font-style:italic;line-height:1.4}
+
+/* ── CALENDAR VIEW ── */
+#view-cal{padding:20px}
+.cal-toolbar{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+.cal-month-nav{display:flex;align-items:center;gap:8px}
+.cal-month-btn{width:30px;height:30px;border:1px solid var(--border);background:var(--surface);border-radius:var(--r);cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;color:var(--text2);transition:all .12s}
+.cal-month-btn:hover{background:var(--surface2)}
+.cal-month-title{font-size:15px;font-weight:600;min-width:160px}
+.cal-range-info{font-size:12px;color:var(--text3);background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:5px 10px}
+.cal-range-info b{color:var(--accent)}
+.btn-clear-range{padding:5px 10px;font-size:12px;background:transparent;border:1px solid var(--border);border-radius:var(--r);cursor:pointer;color:var(--text3);font-family:'Onest',sans-serif}
+.btn-clear-range:hover{background:var(--red-l);color:var(--red);border-color:var(--red)}
+
+.cal-day-names{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:4px}
+.cal-dn{text-align:center;font-size:11px;font-weight:600;color:var(--text3);padding:4px 0;text-transform:uppercase;letter-spacing:.5px}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.cal-cell{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);min-height:110px;padding:8px 6px;cursor:pointer;position:relative;transition:all .12s;display:flex;flex-direction:column}
+.cal-cell:hover{border-color:var(--border2);box-shadow:var(--shadow)}
+.cal-cell.today{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.cal-cell.other{opacity:.5}
+.cal-cell.drop-target{background:var(--accent-l);border-color:var(--accent)}
+.cal-cell.range-a{background:var(--blue-l);border-color:var(--blue)}
+.cal-cell.range-b{background:var(--blue-l);border-color:var(--blue)}
+.cal-cell.in-range{background:var(--surface2)}
+.cal-num{font-size:13px;font-weight:600;color:var(--text2);margin-bottom:4px;display:flex;align-items:center;justify-content:space-between}
+.cal-cell.today .cal-num-d{color:var(--accent)}
+.cal-chip{font-size:10px;padding:2px 5px;border-radius:4px;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:grab;font-weight:500}
+.cal-more{font-size:10px;color:var(--text3);margin-top:2px}
+.cal-plus{font-size:16px;color:var(--text3);background:transparent;border:none;cursor:pointer;line-height:1;transition:color .12s}
+.cal-plus:hover{color:var(--accent)}
+.cal-cell-tasks{flex:1;overflow:hidden}
+
+/* ── REPORT VIEW ── */
+#view-report{padding:20px}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:20px;margin-bottom:16px}
+.panel h3{font-size:15px;font-weight:600;margin-bottom:14px}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.form-field{display:flex;flex-direction:column;gap:5px}
+.form-field label{font-size:12px;font-weight:500;color:var(--text2)}
+.form-field input,.form-field select,.form-field textarea{padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;color:var(--text);font-family:'Onest',sans-serif;background:var(--surface);outline:none;transition:border-color .12s}
+.form-field input:focus,.form-field select:focus,.form-field textarea:focus{border-color:var(--accent)}
+.proj-checks{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 12px}
+.proj-chk{display:flex;align-items:center;gap:6px;padding:5px 10px;border:1px solid var(--border);border-radius:var(--r);cursor:pointer;font-size:12px;font-weight:500;transition:all .12s;user-select:none}
+.proj-chk:hover{background:var(--surface2)}
+.proj-chk input{margin:0}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.report-text{background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:16px;font-size:12px;line-height:1.8;white-space:pre-wrap;font-family:'JetBrains Mono',monospace;color:var(--text);min-height:80px;max-height:500px;overflow-y:auto;margin-top:12px}
+
+/* ── EXPORT VIEW ── */
+#view-export{padding:20px}
+.export-json{background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:16px;font-size:11px;line-height:1.7;white-space:pre-wrap;font-family:'JetBrains Mono',monospace;color:var(--text);max-height:400px;overflow-y:auto;margin-top:12px}
+.import-area{margin-top:8px}
+.import-area textarea{width:100%;min-height:120px;padding:10px;border:1px solid var(--border);border-radius:var(--r);font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--text);background:var(--surface);outline:none;resize:vertical}
+.import-area textarea:focus{border-color:var(--accent)}
+
+/* ── MODAL ── */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;align-items:center;justify-content:center}
+.modal-overlay.open{display:flex}
+.modal-box{background:var(--surface);border-radius:var(--r-lg);padding:28px;width:420px;max-width:96vw;box-shadow:var(--shadow-lg);position:relative}
+.modal-box h3{font-size:16px;font-weight:600;margin-bottom:18px}
+.modal-field{margin-bottom:14px}
+.modal-field label{display:block;font-size:12px;font-weight:500;color:var(--text2);margin-bottom:5px}
+.modal-field input,.modal-field select,.modal-field textarea{width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;color:var(--text);font-family:'Onest',sans-serif;background:var(--surface);outline:none;transition:border-color .12s}
+.modal-field input:focus,.modal-field select:focus,.modal-field textarea:focus{border-color:var(--accent)}
+.modal-field textarea{resize:vertical;min-height:70px}
+.modal-btns{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
+.btn-primary{padding:9px 20px;background:var(--accent);color:#fff;border:none;border-radius:var(--r);font-size:13px;font-weight:500;cursor:pointer;font-family:'Onest',sans-serif;transition:background .12s}
+.btn-primary:hover{background:var(--accent-d)}
+
+/* TOAST */
+.toast{position:fixed;bottom:20px;right:20px;background:var(--text);color:#fff;padding:10px 16px;border-radius:var(--r);font-size:13px;z-index:300;opacity:0;transform:translateY(8px);transition:all .2s;pointer-events:none}
+.toast.show{opacity:1;transform:translateY(0)}
+
+/* Scrollbar */
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo"><div class="logo-icon">✦</div> Трекер задач</div>
+  <span id="sync-status" style="font-size:12px;transition:color .3s;margin-left:8px"></span>
+  <nav class="nav">
+    <button class="nav-btn active" onclick="showView('list')">Список</button>
+    <button class="nav-btn" onclick="showView('cal')">Календарь</button>
+    <button class="nav-btn" onclick="showView('report')">Отчёт</button>
+    <button class="nav-btn" onclick="showView('export')">Экспорт</button>
+  </nav>
+</div>
+
+<div class="layout">
+  <div class="sidebar" id="sidebar"></div>
+  <div class="content">
+    <div id="view-list" class="view active"></div>
+    <div id="view-cal" class="view"></div>
+    <div id="view-report" class="view"></div>
+    <div id="view-export" class="view"></div>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modal" onclick="if(event.target===this)closeModal()">
+  <div class="modal-box">
+    <h3 id="modal-title">Новая задача</h3>
+    <div class="modal-field"><label>Название</label><input id="f-name" placeholder="Что нужно сделать?"></div>
+    <div class="modal-field"><label>Проект</label><select id="f-proj"></select></div>
+    <div class="modal-field"><label>Дата</label><input type="date" id="f-date"></div>
+    <div class="modal-field"><label>Комментарий</label><textarea id="f-comment" placeholder="Заметки, детали..."></textarea></div>
+    <div class="modal-btns">
+      <button class="btn-sec" onclick="closeModal()">Отмена</button>
+      <button class="btn-primary" onclick="saveTask()">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ─── STATE ───────────────────────────────────────────────────────────────────
+const COLORS=[
+  {c:'#2d6a4f',bg:'#e8f4ee',name:'Зелёный'},
+  {c:'#1a5b8a',bg:'#e3eff8',name:'Синий'},
+  {c:'#7d4e00',bg:'#fdf0d5',name:'Янтарный'},
+  {c:'#7a2d5a',bg:'#f7e8f2',name:'Сиреневый'},
+  {c:'#8b2020',bg:'#fbeaea',name:'Красный'},
+  {c:'#2d527a',bg:'#dff0fc',name:'Голубой'},
+  {c:'#5a3e1b',bg:'#f5ede0',name:'Коричневый'},
+];
+
+let state = JSON.parse(localStorage.getItem('tt-state') || 'null') || {
+  projects:[
+    {id:'p1',name:'Личное',ci:0},
+    {id:'p2',name:'Работа',ci:1},
+  ],
+  days:{},
+  filter:'all',
+  windowSize:7
+};
+
+let editId=null, editDay=null, modalDay=null;
+let dragId=null, dragFromDay=null;
+let calY=new Date().getFullYear(), calM=new Date().getMonth();
+let rangeA=null, rangeB=null;
+
+// ─── SUPABASE ────────────────────────────────────────────────────────────────
+const SB_URL = 'https://fcbagvdvcopxmmocnwbk.supabase.co';
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZjYmFndmR2Y29weG1tb2Nud2JrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0NDc3MDQsImV4cCI6MjA5MDAyMzcwNH0.gwriNq11zHL6hM8gW4QIgOzaQZ_5PJ8RrAp4Yw30oq4';
+const SB_HEADERS = {'Content-Type':'application/json','apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY};
+
+let saveTimer = null;
+let syncStatus = 'idle'; // idle | saving | saved | error
+
+function setSyncStatus(s, msg){
+  syncStatus = s;
+  const el = document.getElementById('sync-status');
+  if(!el) return;
+  const map = {
+    idle:   ['',''],
+    saving: ['⟳ Сохранение...','#9e9d96'],
+    saved:  ['✓ Сохранено','#2d6a4f'],
+    error:  ['✕ Ошибка синхронизации','#8b2020'],
+    loading:['⟳ Загрузка...','#9e9d96'],
+  };
+  el.textContent = map[s][0];
+  el.style.color = map[s][1];
+}
+
+async function syncToCloud(){
+  setSyncStatus('saving');
+  try {
+    const res = await fetch(`${SB_URL}/rest/v1/taskdata?id=eq.1`, {
+      method: 'PATCH',
+      headers: {...SB_HEADERS, 'Prefer':'return=minimal'},
+      body: JSON.stringify({ payload: state, updated_at: new Date().toISOString() })
+    });
+    if(!res.ok) throw new Error(res.status);
+    localStorage.setItem('tt-state', JSON.stringify(state));
+    setSyncStatus('saved');
+    setTimeout(()=>setSyncStatus('idle'), 2000);
+  } catch(e) {
+    setSyncStatus('error');
+    localStorage.setItem('tt-state', JSON.stringify(state));
+    console.error('Sync error:', e);
+  }
+}
+
+async function loadFromCloud(){
+  setSyncStatus('loading');
+  try {
+    const res = await fetch(`${SB_URL}/rest/v1/taskdata?id=eq.1&select=payload,updated_at`, {
+      headers: SB_HEADERS
+    });
+    if(!res.ok) throw new Error(res.status);
+    const rows = await res.json();
+    if(rows.length && rows[0].payload && Object.keys(rows[0].payload).length > 0){
+      state = rows[0].payload;
+      // убедимся что обязательные поля есть
+      if(!state.projects) state.projects = [];
+      if(!state.days) state.days = {};
+      if(!state.filter) state.filter = 'all';
+      if(!state.windowSize) state.windowSize = 7;
+      localStorage.setItem('tt-state', JSON.stringify(state));
+    }
+    setSyncStatus('idle');
+  } catch(e) {
+    setSyncStatus('error');
+    console.error('Load error:', e);
+    // fallback to localStorage
+    const local = JSON.parse(localStorage.getItem('tt-state') || 'null');
+    if(local) state = local;
+  }
+}
+
+// debounced save — не шлём запрос на каждый чих
+function save(){
+  localStorage.setItem('tt-state', JSON.stringify(state));
+  if(saveTimer) clearTimeout(saveTimer);
+  setSyncStatus('saving');
+  saveTimer = setTimeout(syncToCloud, 800);
+}
+
+// ─── HELPERS ─────────────────────────────────────────────────────────────────
+function genId(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6)}
+function todayKey(){const d=new Date();return fmtKey(d.getFullYear(),d.getMonth(),d.getDate())}
+function fmtKey(y,m,d){return`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`}
+function parseKey(k){const[y,m,d]=k.split('-').map(Number);return new Date(y,m-1,d)}
+function proj(id){return state.projects.find(p=>p.id===id)||null}
+function projColor(id){const p=proj(id);if(!p)return{c:'#888',bg:'#eee'};return COLORS[p.ci%COLORS.length]}
+function dayTasks(k){return state.days[k]||[]}
+function initDay(k){if(!state.days[k])state.days[k]=[]}
+function filteredTasks(tasks){if(state.filter==='all')return tasks;return tasks.filter(t=>t.proj===state.filter)}
+function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),2200)}
+
+function fmtDisplay(k){
+  const d=parseKey(k);
+  const dn=['воскресенье','понедельник','вторник','среда','четверг','пятница','суббота'];
+  const mn=['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+  return`${dn[d.getDay()]}, ${d.getDate()} ${mn[d.getMonth()]} ${d.getFullYear()}`;
+}
+function fmtShort(k){
+  const d=parseKey(k);
+  const mn=['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'];
+  return`${d.getDate()} ${mn[d.getMonth()]}`;
+}
+
+// ─── WINDOW NAVIGATION ───────────────────────────────────────────────────────
+let windowStart = null;
+function getWindowStart(){
+  if(windowStart) return windowStart;
+  const d = new Date(); d.setHours(0,0,0,0);
+  return d;
+}
+function windowKeys(){
+  const keys=[];
+  const d=new Date(getWindowStart());
+  for(let i=0;i<state.windowSize;i++){
+    keys.push(fmtKey(d.getFullYear(),d.getMonth(),d.getDate()));
+    d.setDate(d.getDate()+1);
+  }
+  return keys;
+}
+function shiftWindow(n){
+  const d=new Date(getWindowStart());
+  d.setDate(d.getDate()+n);
+  windowStart=d;
+  renderList();
+}
+
+// ─── SIDEBAR ─────────────────────────────────────────────────────────────────
+function renderSidebar(){
+  const el=document.getElementById('sidebar');
+  let h=`<div class="sidebar-label">Проекты</div>
+  <div class="proj-item${state.filter==='all'?' active':''}" onclick="setFilter('all')">
+    <span class="proj-dot" style="background:var(--text3)"></span>
+    <span class="proj-name">Все задачи</span>
+  </div>`;
+  state.projects.forEach(p=>{
+    const col=COLORS[p.ci%COLORS.length];
+    h+=`<div class="proj-item${state.filter===p.id?' active':''}" onclick="setFilter('${p.id}')">
+      <span class="proj-dot" style="background:${col.c}"></span>
+      <span class="proj-name">${p.name}</span>
+      <span class="proj-del" onclick="event.stopPropagation();delProj('${p.id}')">✕</span>
+    </div>`;
+  });
+  h+=`<button class="add-proj" onclick="addProj()">+ Новый проект</button>`;
+  el.innerHTML=h;
+}
+
+function setFilter(f){
+  state.filter=f;save();
+  renderSidebar();
+  rerender();
+}
+
+function addProj(){
+  const name=prompt('Название проекта:');
+  if(!name||!name.trim())return;
+  const ci=state.projects.length%COLORS.length;
+  state.projects.push({id:'p'+genId(),name:name.trim(),ci});
+  save();renderSidebar();renderProjSelects();
+}
+
+function delProj(id){
+  if(!confirm('Удалить проект?\nЗадачи останутся, но потеряют привязку.'))return;
+  state.projects=state.projects.filter(p=>p.id!==id);
+  if(state.filter===id)state.filter='all';
+  save();renderSidebar();rerender();
+}
+
+function renderProjSelects(){
+  const s=document.getElementById('f-proj');
+  if(!s)return;
+  s.innerHTML=state.projects.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
+}
+
+// ─── MODAL ───────────────────────────────────────────────────────────────────
+function openModal(dayKey,taskId){
+  modalDay=dayKey||todayKey();
+  editId=taskId||null;
+  renderProjSelects();
+  document.getElementById('modal-title').textContent=taskId?'Редактировать задачу':'Новая задача';
+  document.getElementById('f-date').value=modalDay;
+  if(taskId){
+    const t=dayTasks(modalDay).find(x=>x.id===taskId);
+    if(t){
+      document.getElementById('f-name').value=t.name;
+      document.getElementById('f-proj').value=t.proj||state.projects[0]?.id||'';
+      document.getElementById('f-comment').value=t.comment||'';
+    }
+  } else {
+    document.getElementById('f-name').value='';
+    document.getElementById('f-proj').value=state.projects[0]?.id||'';
+    document.getElementById('f-comment').value='';
+  }
+  document.getElementById('modal').classList.add('open');
+  setTimeout(()=>document.getElementById('f-name').focus(),50);
+}
+
+function closeModal(){document.getElementById('modal').classList.remove('open');}
+
+function saveTask(){
+  const name=document.getElementById('f-name').value.trim();
+  if(!name){document.getElementById('f-name').focus();return;}
+  const p=document.getElementById('f-proj').value;
+  const comment=document.getElementById('f-comment').value.trim();
+  const dateVal=document.getElementById('f-date').value||modalDay;
+  initDay(dateVal);
+
+  if(editId){
+    // if date changed, move task
+    if(dateVal!==modalDay){
+      const t=state.days[modalDay]?.find(x=>x.id===editId);
+      if(t){
+        state.days[modalDay]=state.days[modalDay].filter(x=>x.id!==editId);
+        Object.assign(t,{name,proj:p,comment});
+        initDay(dateVal);state.days[dateVal].push(t);
+      }
+    } else {
+      const t=state.days[modalDay].find(x=>x.id===editId);
+      if(t)Object.assign(t,{name,proj:p,comment});
+    }
+  } else {
+    state.days[dateVal].push({id:genId(),name,proj:p,comment,done:false});
+  }
+  save();closeModal();rerender();toast(editId?'Задача обновлена':'Задача добавлена');
+}
+
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
+
+// ─── LIST VIEW (KANBAN) ───────────────────────────────────────────────────────
+function renderList(){
+  const el=document.getElementById('view-list');
+  const keys=windowKeys();
+  const ws=state.windowSize;
+  const filterName=state.filter==='all'?'Все задачи':(proj(state.filter)?.name||'');
+
+  let h=`<div class="list-toolbar">
+    <span class="list-title">${filterName}</span>
+    <div class="window-ctrl">
+      <button onclick="shiftWindow(-${ws})" title="Назад на ${ws} дн">‹</button>
+      <button onclick="shiftWindow(-1)" title="-1 день">←</button>
+      <span>${ws} дн</span>
+      <button onclick="shiftWindow(1)" title="+1 день">→</button>
+      <button onclick="shiftWindow(${ws})" title="Вперёд на ${ws} дн">›</button>
+    </div>
+    <div class="window-ctrl">
+      <button onclick="changeWindow(-1)" title="Меньше колонок">−</button>
+      <span>ширина</span>
+      <button onclick="changeWindow(1)" title="Больше колонок">+</button>
+    </div>
+    <button class="btn-sec" onclick="goToday()">Сегодня</button>
+    <button class="btn-add-today" onclick="openModal('${todayKey()}')">+ Задача</button>
+  </div>
+  <div class="kanban-board" id="kanban-board">`;
+
+  keys.forEach(key=>{
+    const allT=dayTasks(key);
+    const tasks=filteredTasks(allT);
+    const isToday=key===todayKey();
+    const d=parseKey(key);
+    const WDAYS=['Вс','Пн','Вт','Ср','Чт','Пт','Сб'];
+    const MONTHS=['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'];
+    const weekday=WDAYS[d.getDay()];
+    const dateNum=d.getDate();
+    const monthName=MONTHS[d.getMonth()];
+
+    h+=`<div class="day-col${isToday?' today-col':''}" id="db-${key}"
+      ondragover="dragOver(event,'${key}')"
+      ondrop="dropOn(event,'${key}')"
+      ondragleave="dragLeave('${key}')">
+      <div class="day-col-head${isToday?' today-head':''}">
+        <div class="day-weekday">${weekday}${isToday?' · сегодня':''}</div>
+        <div class="day-date-row">
+          <span class="day-datenum">${dateNum}</span>
+          <span class="day-monthname">${monthName}</span>
+          ${isToday?`<span class="today-badge">today</span>`:''}
+        </div>
+        <div class="day-meta">
+          <span class="day-cnt">${allT.length} задач</span>
+          <button class="day-add-btn" onclick="openModal('${key}')">+ задача</button>
+        </div>
+      </div>
+      <div class="tasks-area" id="ta-${key}">`;
+    if(tasks.length===0){
+      h+=`<div class="empty-hint">Нет задач<br>Перетащите или добавьте</div>`;
+    } else {
+      tasks.forEach(t=>{ h+=taskCardHtml(t,key); });
+    }
+    h+=`</div></div>`;
+  });
+
+  h+=`</div>`;
+  el.innerHTML=h;
+}
+
+function changeWindow(n){
+  state.windowSize=Math.max(1,Math.min(14,state.windowSize+n));
+  save();renderList();
+}
+function goToday(){
+  windowStart=null;renderList();
+}
+
+function taskCardHtml(t,key){
+  const col=projColor(t.proj);
+  const pn=proj(t.proj)?.name||'—';
+  return`<div class="task-card${t.done?' done':''}" id="tc-${t.id}"
+    draggable="true"
+    ondragstart="dragStart(event,'${t.id}','${key}')"
+    ondragend="dragEnd()"
+    ondragover="cardDragOver(event,'${t.id}')"
+    ondragleave="cardDragLeave('${t.id}')">
+    <span class="task-proj-tag" style="background:${col.bg};color:${col.c}">${pn}</span>
+    <div class="task-row">
+      <div class="check-circle${t.done?' checked':''}" onclick="toggleDone('${key}','${t.id}')"></div>
+      <span class="task-name">${t.name}</span>
+      <div class="task-actions">
+        <button class="task-act-btn" onclick="openModal('${key}','${t.id}')" title="Редактировать">✎</button>
+        <button class="task-act-btn" onclick="moveTaskPrompt('${key}','${t.id}')" title="Перенести">→</button>
+        <button class="task-act-btn del" onclick="delTask('${key}','${t.id}')" title="Удалить">✕</button>
+      </div>
+    </div>
+    ${t.comment?`<div class="task-comment">${t.comment}</div>`:''}
+  </div>`;
+}
+
+function toggleDone(dayKey,id){
+  const t=dayTasks(dayKey).find(x=>x.id===id);
+  if(t){t.done=!t.done;save();rerender();}
+}
+function delTask(dayKey,id){
+  if(!state.days[dayKey])return;
+  state.days[dayKey]=state.days[dayKey].filter(t=>t.id!==id);
+  save();rerender();toast('Задача удалена');
+}
+function moveTaskPrompt(fromDay,id){
+  const k=prompt('Перенести на дату (ГГГГ-ММ-ДД):',todayKey());
+  if(!k||!/^\d{4}-\d{2}-\d{2}$/.test(k))return;
+  const t=state.days[fromDay]?.find(x=>x.id===id);
+  if(!t)return;
+  state.days[fromDay]=state.days[fromDay].filter(x=>x.id!==id);
+  initDay(k);state.days[k].push(t);
+  save();rerender();toast(`Задача перенесена на ${fmtShort(k)}`);
+}
+
+// ─── DRAG & DROP ─────────────────────────────────────────────────────────────
+let dragOverCard=null;
+function dragStart(e,id,day){
+  dragId=id;dragFromDay=day;
+  e.dataTransfer.effectAllowed='move';
+  setTimeout(()=>document.getElementById('tc-'+id)?.classList.add('dragging'),0);
+}
+function dragEnd(){
+  if(dragId)document.getElementById('tc-'+dragId)?.classList.remove('dragging');
+  document.querySelectorAll('.drop-target').forEach(x=>x.classList.remove('drop-target'));
+  document.querySelectorAll('.drop-above,.drop-below').forEach(x=>{x.classList.remove('drop-above','drop-below')});
+  dragId=null;dragFromDay=null;dragOverCard=null;
+}
+function dragOver(e,dayKey){
+  e.preventDefault();e.dataTransfer.dropEffect='move';
+  document.getElementById('db-'+dayKey)?.classList.add('drop-target');
+}
+function dragLeave(dayKey){document.getElementById('db-'+dayKey)?.classList.remove('drop-target');}
+function cardDragOver(e,cardId){
+  e.preventDefault();e.stopPropagation();
+  if(dragOverCard&&dragOverCard!==cardId){
+    document.getElementById('tc-'+dragOverCard)?.classList.remove('drop-above','drop-below');
+  }
+  dragOverCard=cardId;
+  const rect=document.getElementById('tc-'+cardId)?.getBoundingClientRect();
+  if(!rect)return;
+  const mid=rect.top+rect.height/2;
+  const el=document.getElementById('tc-'+cardId);
+  if(e.clientY<mid){el.classList.add('drop-above');el.classList.remove('drop-below');}
+  else{el.classList.add('drop-below');el.classList.remove('drop-above');}
+}
+function cardDragLeave(cardId){
+  document.getElementById('tc-'+cardId)?.classList.remove('drop-above','drop-below');
+  dragOverCard=null;
+}
+function dropOn(e,toDay){
+  e.preventDefault();
+  document.querySelectorAll('.drop-target,.drop-above,.drop-below').forEach(x=>{
+    x.classList.remove('drop-target','drop-above','drop-below');
+  });
+  if(!dragId||!dragFromDay)return;
+  const t=state.days[dragFromDay]?.find(x=>x.id===dragId);
+  if(!t)return;
+  state.days[dragFromDay]=state.days[dragFromDay].filter(x=>x.id!==dragId);
+  initDay(toDay);
+  if(dragOverCard&&toDay===dragFromDay){
+    const idx=state.days[toDay].findIndex(x=>x.id===dragOverCard);
+    const el=document.getElementById('tc-'+dragOverCard);
+    const isAbove=el?.classList.contains('drop-above');
+    if(idx>=0){state.days[toDay].splice(isAbove?idx:idx+1,0,t);}
+    else{state.days[toDay].push(t);}
+  } else {
+    state.days[toDay].push(t);
+  }
+  save();rerender();
+}
+
+// ─── CALENDAR VIEW ───────────────────────────────────────────────────────────
+function renderCal(){
+  const el=document.getElementById('view-cal');
+  const y=calY,m=calM;
+  const MN=['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+  const DN=['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
+  const first=new Date(y,m,1);
+  const dow=(first.getDay()+6)%7;
+  const dim=new Date(y,m+1,0).getDate();
+  const prevDim=new Date(y,m,0).getDate();
+  let cells=[];
+  for(let i=dow-1;i>=0;i--)cells.push({d:prevDim-i,m:m-1,y:m===0?y-1:y,other:true});
+  for(let d=1;d<=dim;d++)cells.push({d,m,y,other:false});
+  const rem=(7-cells.length%7)%7;
+  for(let d=1;d<=rem;d++)cells.push({d,m:m+1,y:m===11?y+1:y,other:true});
+
+  let rangeInfo='';
+  if(rangeA&&rangeB) rangeInfo=`<div class="cal-range-info">Диапазон: <b>${fmtShort(rangeA)}</b> — <b>${fmtShort(rangeB)}</b></div><button class="btn-clear-range" onclick="clearRange()">Сбросить</button>`;
+  else if(rangeA) rangeInfo=`<div class="cal-range-info">Начало: <b>${fmtShort(rangeA)}</b> — выберите конец</div><button class="btn-clear-range" onclick="clearRange()">Сбросить</button>`;
+
+  let h=`<div class="cal-toolbar">
+    <div class="cal-month-nav">
+      <button class="cal-month-btn" onclick="calPrev()">‹</button>
+      <span class="cal-month-title">${MN[m]} ${y}</span>
+      <button class="cal-month-btn" onclick="calNext()">›</button>
+    </div>
+    ${rangeInfo}
+    <div style="margin-left:auto;display:flex;gap:8px">
+      ${rangeA&&rangeB?`<button class="btn-sec" onclick="showView('report')">Отчёт за период</button>`:''}
+      <button class="btn-add-today" onclick="openModal('${todayKey()}')">+ Задача</button>
+    </div>
+  </div>
+  <div class="cal-day-names">${DN.map(d=>`<div class="cal-dn">${d}</div>`).join('')}</div>
+  <div class="cal-grid">`;
+
+  cells.forEach(c=>{
+    const k=fmtKey(c.y,c.m,c.d);
+    const tasks=filteredTasks(dayTasks(k));
+    const isToday=k===todayKey();
+    const isA=k===rangeA,isB=k===rangeB;
+    const inRange=rangeA&&rangeB&&k>rangeA&&k<rangeB;
+    let cls='cal-cell'+(c.other?' other':'')+(isToday?' today':'')+(isA?' range-a':'')+(isB?' range-b':'')+(inRange?' in-range':'');
+    h+=`<div class="${cls}" id="cc-${k}"
+      onclick="calClick('${k}')"
+      ondragover="calDragOver(event,'${k}')"
+      ondrop="calDrop(event,'${k}')"
+      ondragleave="calDragLeave('${k}')">
+      <div class="cal-num"><span class="cal-num-d">${c.d}</span><button class="cal-plus" onclick="event.stopPropagation();openModal('${k}')">+</button></div>
+      <div class="cal-cell-tasks">`;
+    tasks.slice(0,3).forEach(t=>{
+      const col=projColor(t.proj);
+      h+=`<div class="cal-chip" style="background:${col.bg};color:${col.c}"
+        draggable="true"
+        ondragstart="chipDragStart(event,'${t.id}','${k}')"
+        onclick="event.stopPropagation();openModal('${k}','${t.id}')"
+        title="${t.name}">${t.name}</div>`;
+    });
+    if(tasks.length>3)h+=`<div class="cal-more">+${tasks.length-3} ещё</div>`;
+    h+=`</div></div>`;
+  });
+  h+=`</div>`;
+  el.innerHTML=h;
+}
+
+function calPrev(){calM--;if(calM<0){calM=11;calY--;}renderCal();}
+function calNext(){calM++;if(calM>11){calM=0;calY++;}renderCal();}
+function clearRange(){rangeA=null;rangeB=null;renderCal();}
+
+function calClick(k){
+  if(!rangeA){rangeA=k;rangeB=null;}
+  else if(!rangeB&&k>rangeA){rangeB=k;}
+  else if(!rangeB&&k===rangeA){rangeA=null;}
+  else{rangeA=k;rangeB=null;}
+  renderCal();
+}
+
+function calDragOver(e,k){e.preventDefault();document.getElementById('cc-'+k)?.classList.add('drop-target');}
+function calDragLeave(k){document.getElementById('cc-'+k)?.classList.remove('drop-target');}
+function calDrop(e,k){
+  e.preventDefault();document.getElementById('cc-'+k)?.classList.remove('drop-target');
+  if(!dragId||!dragFromDay)return;
+  const t=state.days[dragFromDay]?.find(x=>x.id===dragId);
+  if(!t)return;
+  state.days[dragFromDay]=state.days[dragFromDay].filter(x=>x.id!==dragId);
+  initDay(k);state.days[k].push(t);
+  save();rerender();toast(`Задача перенесена на ${fmtShort(k)}`);
+}
+function chipDragStart(e,id,day){dragId=id;dragFromDay=day;e.dataTransfer.effectAllowed='move';e.stopPropagation();}
+
+// ─── REPORT VIEW ─────────────────────────────────────────────────────────────
+function renderReport(){
+  const el=document.getElementById('view-report');
+  const fromVal=rangeA||'';
+  const toVal=rangeB||'';
+  let h=`<div class="panel">
+    <h3>Параметры отчёта</h3>
+    <div class="form-grid">
+      <div class="form-field"><label>С даты</label><input type="date" id="r-from" value="${fromVal}" oninput="genReport()"></div>
+      <div class="form-field"><label>По дату</label><input type="date" id="r-to" value="${toVal}" oninput="genReport()"></div>
+    </div>
+    <div style="margin-top:14px;font-size:12px;font-weight:600;color:var(--text2)">Включить проекты:</div>
+    <div class="proj-checks" id="r-checks">
+      ${state.projects.map(p=>{
+        const col=COLORS[p.ci%COLORS.length];
+        return`<label class="proj-chk">
+          <input type="checkbox" value="${p.id}" checked onchange="genReport()">
+          <span style="width:8px;height:8px;border-radius:50%;background:${col.c};display:inline-block;flex-shrink:0"></span>
+          ${p.name}</label>`;
+      }).join('')}
+    </div>
+    <div class="btn-row">
+      <button class="btn-primary" onclick="genReport()">Сгенерировать</button>
+      <button class="btn-sec" onclick="copyReport()">Копировать</button>
+    </div>
+    <div class="report-text" id="r-out">Укажите период и нажмите «Сгенерировать»</div>
+  </div>`;
+  el.innerHTML=h;
+  if(fromVal&&toVal)setTimeout(genReport,50);
+}
+
+function genReport(){
+  const from=document.getElementById('r-from')?.value;
+  const to=document.getElementById('r-to')?.value;
+  if(!from||!to){document.getElementById('r-out').textContent='Укажите период';return;}
+  const checks=[...document.querySelectorAll('#r-checks input:checked')].map(c=>c.value);
+  const byProj={};checks.forEach(id=>{byProj[id]=[];});
+  Object.keys(state.days).sort().forEach(k=>{
+    if(k<from||k>to)return;
+    dayTasks(k).forEach(t=>{
+      if(checks.includes(t.proj))byProj[t.proj].push({...t,day:k});
+    });
+  });
+  let total=0;
+  const lines=[
+    `ОТЧЁТ ПО ЗАДАЧАМ`,
+    `Период: ${fmtShort(from)} — ${fmtShort(to)}`,
+    `Проекты: ${checks.map(id=>proj(id)?.name||id).join(', ')||'—'}`,
+    `Дата создания: ${new Date().toLocaleDateString('ru-RU')}`,
+    `${'─'.repeat(50)}`,''
+  ];
+  checks.forEach(id=>{
+    const tasks=byProj[id];if(!tasks.length)return;
+    total+=tasks.length;
+    const pn=proj(id)?.name||id;
+    const done=tasks.filter(t=>t.done).length;
+    lines.push(`▸ ${pn.toUpperCase()} (${tasks.length} задач, выполнено: ${done})`);
+    tasks.forEach(t=>{
+      lines.push(`  ${t.done?'[✓]':'[ ]'}  ${fmtShort(t.day).padEnd(8)}  ${t.name}`);
+      if(t.comment)lines.push(`              ↳ ${t.comment}`);
+    });
+    lines.push('');
+  });
+  lines.push(`${'─'.repeat(50)}`);
+  lines.push(`ИТОГО: ${total} задач`);
+  document.getElementById('r-out').textContent=lines.join('\n');
+}
+
+function copyReport(){
+  const text=document.getElementById('r-out')?.textContent||'';
+  navigator.clipboard.writeText(text).then(()=>toast('Скопировано!'));
+}
+
+// ─── EXPORT VIEW ─────────────────────────────────────────────────────────────
+function renderExport(){
+  const el=document.getElementById('view-export');
+  el.innerHTML=`<div class="panel">
+    <h3>Экспорт данных</h3>
+    <p style="font-size:13px;color:var(--text2);margin-bottom:8px">Скопируйте JSON и сохраните в файл. Данные хранятся в браузере автоматически.</p>
+    <div class="btn-row">
+      <button class="btn-primary" onclick="copyExport()">Копировать JSON</button>
+      <button class="btn-sec" onclick="downloadExport()">Скачать файл</button>
+    </div>
+    <div class="export-json" id="ex-json">${JSON.stringify(state,null,2)}</div>
+    <div style="margin-top:20px">
+      <h3 style="font-size:14px;font-weight:600;margin-bottom:10px">Импорт данных</h3>
+      <div class="import-area"><textarea id="im-json" placeholder="Вставьте JSON для импорта..."></textarea></div>
+      <div class="btn-row" style="margin-top:8px">
+        <button class="btn-primary" onclick="doImport()">Импортировать</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function copyExport(){
+  navigator.clipboard.writeText(JSON.stringify(state,null,2)).then(()=>toast('JSON скопирован!'));
+}
+function downloadExport(){
+  const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download=`tasks-${todayKey()}.json`;a.click();
+}
+function doImport(){
+  const raw=document.getElementById('im-json').value.trim();
+  if(!raw)return;
+  try{
+    const d=JSON.parse(raw);
+    if(d.projects&&d.days){
+      Object.assign(state,d);
+      save();renderSidebar();rerender();
+      toast('Данные импортированы!');
+    } else toast('Неверный формат данных');
+  }catch{toast('Ошибка: неверный JSON');}
+}
+
+// ─── VIEW SWITCHER ────────────────────────────────────────────────────────────
+function showView(v){
+  ['list','cal','report','export'].forEach(name=>{
+    const el=document.getElementById('view-'+name);
+    el.classList.toggle('active',name===v);
+  });
+  document.querySelectorAll('.nav-btn').forEach((btn,i)=>{
+    btn.classList.toggle('active',['list','cal','report','export'][i]===v);
+  });
+  if(v==='list')renderList();
+  if(v==='cal')renderCal();
+  if(v==='report')renderReport();
+  if(v==='export')renderExport();
+}
+
+function rerender(){
+  const views=['list','cal','report','export'];
+  views.forEach(v=>{
+    if(document.getElementById('view-'+v).classList.contains('active')){
+      showView(v);
+    }
+  });
+}
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+(async () => {
+  renderSidebar();
+  renderList();
+  await loadFromCloud();
+  renderSidebar();
+  renderList();
+})();
+</script>
+</body>
+</html>
