@@ -48,6 +48,7 @@ body{font-family:'Onest',sans-serif;background:var(--bg);color:var(--text);min-h
 /* LAYOUT */
 .layout{display:flex;height:calc(100vh - 54px);overflow:hidden}
 .sidebar{width:210px;background:var(--surface);border-right:1px solid var(--border);padding:16px 12px;flex-shrink:0;overflow-y:auto;display:flex;flex-direction:column;gap:4px}
+.sidebar.hidden{display:none}
 .sidebar-label{font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;padding:4px 8px;margin-top:8px}
 .sidebar-label:first-child{margin-top:0}
 .proj-item{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:var(--r);cursor:pointer;font-size:13px;color:var(--text2);transition:all .12s;user-select:none}
@@ -192,6 +193,8 @@ body{font-family:'Onest',sans-serif;background:var(--bg);color:var(--text);min-h
 .modal-overlay.open{display:flex}
 .modal-box{background:var(--surface);border-radius:var(--r-lg);padding:28px;width:420px;max-width:96vw;box-shadow:var(--shadow-lg);position:relative}
 .modal-box h3{font-size:16px;font-weight:600;margin-bottom:18px}
+.color-btn{border-radius:var(--r);cursor:pointer;transition:all .12s;box-shadow:none}
+.color-btn:hover{transform:scale(1.05);box-shadow:var(--shadow)}
 .modal-field{margin-bottom:14px}
 .modal-field label{display:block;font-size:12px;font-weight:500;color:var(--text2);margin-bottom:5px}
 .modal-field input,.modal-field select,.modal-field textarea{width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;color:var(--text);font-family:'Onest',sans-serif;background:var(--surface);outline:none;transition:border-color .12s}
@@ -423,7 +426,7 @@ function shiftWindow(n){
 // ─── SIDEBAR ─────────────────────────────────────────────────────────────────
 function renderSidebar(){
   const el=document.getElementById('sidebar');
-  let h=`<div class="sidebar-label">Проекты</div>
+  let h=`<div class="sidebar-label">Тэги</div>
   <div class="proj-item${state.filter==='all'?' active':''}" onclick="setFilter('all')">
     <span class="proj-dot" style="background:var(--text3)"></span>
     <span class="proj-name">Все задачи</span>
@@ -446,12 +449,30 @@ function setFilter(f){
   rerender();
 }
 
+let newProjName=null;
 function addProj(){
-  const name=prompt('Название проекта:');
-  if(!name||!name.trim())return;
-  const ci=state.projects.length%COLORS.length;
-  state.projects.push({id:'p'+genId(),name:name.trim(),ci});
+  newProjName=prompt('Название тэга:');
+  if(!newProjName||!newProjName.trim())return;
+  showColorPicker();
+}
+function showColorPicker(){
+  const modal=document.createElement('div');
+  modal.className='modal-overlay open';
+  modal.innerHTML=`<div class="modal-box" onclick="event.stopPropagation()">
+    <h3>Выберите цвет</h3>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:16px 0">
+      ${COLORS.map((col,i)=>`<button class="color-btn" style="background:${col.bg};border:2px solid ${col.c};width:60px;height:60px;border-radius:var(--r);cursor:pointer" onclick="createProjWithColor(${i})" title="${col.name}"></button>`).join('')}
+    </div>
+    <button class="btn-sec" onclick="this.closest('.modal-overlay').remove()">Отмена</button>
+  </div>`;
+  document.body.appendChild(modal);
+  modal.onclick=()=>modal.remove();
+}
+function createProjWithColor(ci){
+  state.projects.push({id:'p'+genId(),name:newProjName.trim(),ci});
   save();renderSidebar();renderProjSelects();
+  document.querySelector('.modal-overlay').remove();
+  newProjName=null;
 }
 
 function delProj(id){
@@ -862,20 +883,33 @@ function renderExport(){
   const el=document.getElementById('view-export');
   el.innerHTML=`<div class="panel">
     <h3>Экспорт данных</h3>
-    <p style="font-size:13px;color:var(--text2);margin-bottom:8px">Скопируйте JSON и сохраните в файл. Данные хранятся в браузере автоматически.</p>
+    <p style="font-size:13px;color:var(--text2);margin-bottom:12px">Скачайте резервную копию данных в JSON-файл.</p>
     <div class="btn-row">
-      <button class="btn-primary" onclick="copyExport()">Копировать JSON</button>
-      <button class="btn-sec" onclick="downloadExport()">Скачать файл</button>
+      <button class="btn-primary" onclick="downloadExport()">⬇️ Скачать резервную копию</button>
     </div>
-    <div class="export-json" id="ex-json">${JSON.stringify(state,null,2)}</div>
-    <div style="margin-top:20px">
-      <h3 style="font-size:14px;font-weight:600;margin-bottom:10px">Импорт данных</h3>
-      <div class="import-area"><textarea id="im-json" placeholder="Вставьте JSON для импорта..."></textarea></div>
-      <div class="btn-row" style="margin-top:8px">
-        <button class="btn-primary" onclick="doImport()">Импортировать</button>
-      </div>
+    <div style="margin-top:24px;padding:16px;background:var(--bg);border:1px solid var(--border);border-radius:var(--r)">
+      <h3 style="font-size:14px;font-weight:600;margin-bottom:10px">Восстановить из файла</h3>
+      <input type="file" id="import-file" accept=".json" onchange="importFromFile()" style="display:block;margin-bottom:8px">
+      <p style="font-size:12px;color:var(--text3)">Выберите JSON-файл, чтобы восстановить данные</p>
     </div>
   </div>`;
+}
+
+function importFromFile(){
+  const file=document.getElementById('import-file').files[0];
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const d=JSON.parse(e.target.result);
+      if(d.projects&&d.days){
+        Object.assign(state,d);
+        save();renderSidebar();rerender();
+        toast('Данные восстановлены!');
+      } else toast('Неверный формат файла');
+    }catch{toast('Ошибка: неверный JSON');}
+  };
+  reader.readAsText(file);
 }
 
 function copyExport(){
@@ -908,6 +942,9 @@ function showView(v){
   document.querySelectorAll('.nav-btn').forEach((btn,i)=>{
     btn.classList.toggle('active',['list','cal','report','export'][i]===v);
   });
+  const sidebar=document.getElementById('sidebar');
+  if(v==='report'||v==='export')sidebar.classList.add('hidden');
+  else sidebar.classList.remove('hidden');
   if(v==='list')renderList();
   if(v==='cal')renderCal();
   if(v==='report')renderReport();
