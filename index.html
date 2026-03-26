@@ -154,9 +154,8 @@ body{font-family:'Onest',sans-serif;background:var(--bg);color:var(--text);min-h
 .cal-cell.today{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
 .cal-cell.other{opacity:.5}
 .cal-cell.drop-target{background:var(--accent-l);border-color:var(--accent)}
-.cal-cell.range-a{background:var(--blue-l);border-color:var(--blue)}
-.cal-cell.range-b{background:var(--blue-l);border-color:var(--blue)}
-.cal-cell.in-range{background:var(--surface2)}
+.cal-cell.expanded{background:var(--surface2);min-height:auto;max-height:300px}.cal-cell-tasks{flex:1;overflow:hidden}
+.cal-cell.expanded .cal-cell-tasks{overflow-y:auto}
 .cal-num{font-size:13px;font-weight:600;color:var(--text2);margin-bottom:4px;display:flex;align-items:center;justify-content:space-between}
 .cal-cell.today .cal-num-d{color:var(--accent)}
 .cal-chip{font-size:10px;padding:2px 5px;border-radius:4px;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:grab;font-weight:500}
@@ -277,7 +276,8 @@ let state = JSON.parse(localStorage.getItem('tt-state') || 'null') || {
 let editId=null, editDay=null, modalDay=null;
 let dragId=null, dragFromDay=null;
 let calY=new Date().getFullYear(), calM=new Date().getMonth();
-let rangeA=null, rangeB=null;
+let expandedCalDay=null;
+let reportFromDate=null, reportToDate=null;
 
 // ─── SUPABASE ────────────────────────────────────────────────────────────────
 const SB_URL = 'https://fcbagvdvcopxmmocnwbk.supabase.co';
@@ -378,6 +378,23 @@ function fmtShort(k){
   const d=parseKey(k);
   const mn=['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'];
   return`${d.getDate()} ${mn[d.getMonth()]}`;
+}
+
+function getLastWeekRange(){
+  const today=new Date();
+  today.setHours(0,0,0,0);
+  const dow=today.getDay();
+  const daysToMonday=dow===0?6:dow-1;
+  const thisMonday=new Date(today);
+  thisMonday.setDate(thisMonday.getDate()-daysToMonday);
+  const lastMonday=new Date(thisMonday);
+  lastMonday.setDate(lastMonday.getDate()-7);
+  const lastSunday=new Date(lastMonday);
+  lastSunday.setDate(lastSunday.getDate()+6);
+  return{
+    start:fmtKey(lastMonday.getFullYear(),lastMonday.getMonth(),lastMonday.getDate()),
+    end:fmtKey(lastSunday.getFullYear(),lastSunday.getMonth(),lastSunday.getDate())
+  };
 }
 
 // ─── WINDOW NAVIGATION ───────────────────────────────────────────────────────
@@ -693,19 +710,13 @@ function renderCal(){
   const rem=(7-cells.length%7)%7;
   for(let d=1;d<=rem;d++)cells.push({d,m:m+1,y:m===11?y+1:y,other:true});
 
-  let rangeInfo='';
-  if(rangeA&&rangeB) rangeInfo=`<div class="cal-range-info">Диапазон: <b>${fmtShort(rangeA)}</b> — <b>${fmtShort(rangeB)}</b></div><button class="btn-clear-range" onclick="clearRange()">Сбросить</button>`;
-  else if(rangeA) rangeInfo=`<div class="cal-range-info">Начало: <b>${fmtShort(rangeA)}</b> — выберите конец</div><button class="btn-clear-range" onclick="clearRange()">Сбросить</button>`;
-
   let h=`<div class="cal-toolbar">
     <div class="cal-month-nav">
       <button class="cal-month-btn" onclick="calPrev()">‹</button>
       <span class="cal-month-title">${MN[m]} ${y}</span>
       <button class="cal-month-btn" onclick="calNext()">›</button>
     </div>
-    ${rangeInfo}
     <div style="margin-left:auto;display:flex;gap:8px">
-      ${rangeA&&rangeB?`<button class="btn-sec" onclick="showView('report')">Отчёт за период</button>`:''}
       <button class="btn-add-today" onclick="openModal('${todayKey()}')">+ Задача</button>
     </div>
   </div>
@@ -716,17 +727,17 @@ function renderCal(){
     const k=fmtKey(c.y,c.m,c.d);
     const tasks=filteredTasks(dayTasks(k));
     const isToday=k===todayKey();
-    const isA=k===rangeA,isB=k===rangeB;
-    const inRange=rangeA&&rangeB&&k>rangeA&&k<rangeB;
-    let cls='cal-cell'+(c.other?' other':'')+(isToday?' today':'')+(isA?' range-a':'')+(isB?' range-b':'')+(inRange?' in-range':'');
+    const isExpanded=k===expandedCalDay;
+    let cls='cal-cell'+(c.other?' other':'')+(isToday?' today':'')+(isExpanded?' expanded':'');
     h+=`<div class="${cls}" id="cc-${k}"
-      onclick="calClick('${k}')"
+      onclick="toggleExpandCal('${k}')"
       ondragover="calDragOver(event,'${k}')"
       ondrop="calDrop(event,'${k}')"
       ondragleave="calDragLeave('${k}')">
       <div class="cal-num"><span class="cal-num-d">${c.d}</span><button class="cal-plus" onclick="event.stopPropagation();openModal('${k}')">+</button></div>
       <div class="cal-cell-tasks">`;
-    tasks.slice(0,3).forEach(t=>{
+    const tasksToShow=isExpanded?tasks:tasks.slice(0,3);
+    tasksToShow.forEach(t=>{
       const col=projColor(t.proj);
       h+=`<div class="cal-chip" style="background:${col.bg};color:${col.c}"
         draggable="true"
@@ -734,7 +745,7 @@ function renderCal(){
         onclick="event.stopPropagation();openModal('${k}','${t.id}')"
         title="${t.name}">${t.name}</div>`;
     });
-    if(tasks.length>3)h+=`<div class="cal-more">+${tasks.length-3} ещё</div>`;
+    if(!isExpanded&&tasks.length>3)h+=`<div class="cal-more" onclick="event.stopPropagation();toggleExpandCal('${k}')">+${tasks.length-3} ещё</div>`;
     h+=`</div></div>`;
   });
   h+=`</div>`;
@@ -743,15 +754,7 @@ function renderCal(){
 
 function calPrev(){calM--;if(calM<0){calM=11;calY--;}renderCal();}
 function calNext(){calM++;if(calM>11){calM=0;calY++;}renderCal();}
-function clearRange(){rangeA=null;rangeB=null;renderCal();}
-
-function calClick(k){
-  if(!rangeA){rangeA=k;rangeB=null;}
-  else if(!rangeB&&k>rangeA){rangeB=k;}
-  else if(!rangeB&&k===rangeA){rangeA=null;}
-  else{rangeA=k;rangeB=null;}
-  renderCal();
-}
+function toggleExpandCal(k){expandedCalDay=expandedCalDay===k?null:k;renderCal();}
 
 function calDragOver(e,k){e.preventDefault();document.getElementById('cc-'+k)?.classList.add('drop-target');}
 function calDragLeave(k){document.getElementById('cc-'+k)?.classList.remove('drop-target');}
@@ -769,13 +772,21 @@ function chipDragStart(e,id,day){dragId=id;dragFromDay=day;e.dataTransfer.effect
 // ─── REPORT VIEW ─────────────────────────────────────────────────────────────
 function renderReport(){
   const el=document.getElementById('view-report');
-  const fromVal=rangeA||'';
-  const toVal=rangeB||'';
+  if(!reportFromDate||!reportToDate){
+    const range=getLastWeekRange();
+    reportFromDate=range.start;
+    reportToDate=range.end;
+  }
   let h=`<div class="panel">
     <h3>Параметры отчёта</h3>
-    <div class="form-grid">
-      <div class="form-field"><label>С даты</label><input type="date" id="r-from" value="${fromVal}" oninput="genReport()"></div>
-      <div class="form-field"><label>По дату</label><input type="date" id="r-to" value="${toVal}" oninput="genReport()"></div>
+    <div class="form-field" style="margin-bottom:14px">
+      <label>Диапазон дат</label>
+      <div style="display:flex;gap:8px;align-items:center;margin-top:5px">
+        <input type="date" id="r-from" value="${reportFromDate}" oninput="reportFromDate=this.value;genReport()">
+        <span>—</span>
+        <input type="date" id="r-to" value="${reportToDate}" oninput="reportToDate=this.value;genReport()">
+        <button class="btn-sec" onclick="setLastWeekDates()" style="white-space:nowrap">Пр. неделя</button>
+      </div>
     </div>
     <div style="margin-top:14px;font-size:12px;font-weight:600;color:var(--text2)">Включить проекты:</div>
     <div class="proj-checks" id="r-checks">
@@ -794,12 +805,19 @@ function renderReport(){
     <div class="report-text" id="r-out">Укажите период и нажмите «Сгенерировать»</div>
   </div>`;
   el.innerHTML=h;
-  if(fromVal&&toVal)setTimeout(genReport,50);
+  setTimeout(genReport,50);
+}
+
+function setLastWeekDates(){
+  const range=getLastWeekRange();
+  reportFromDate=range.start;
+  reportToDate=range.end;
+  renderReport();
 }
 
 function genReport(){
-  const from=document.getElementById('r-from')?.value;
-  const to=document.getElementById('r-to')?.value;
+  const from=reportFromDate;
+  const to=reportToDate;
   if(!from||!to){document.getElementById('r-out').textContent='Укажите период';return;}
   const checks=[...document.querySelectorAll('#r-checks input:checked')].map(c=>c.value);
   const byProj={};checks.forEach(id=>{byProj[id]=[];});
