@@ -215,12 +215,22 @@ body{font-family:'Onest',sans-serif;background:var(--bg);color:var(--text);min-h
 ::-webkit-scrollbar{width:5px;height:5px}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+
+/* ── BACKLOG ── */
+.list-body{display:flex;flex:1;overflow:hidden}
+.backlog-col{width:250px;flex-shrink:0;display:flex;flex-direction:column;border-right:2px solid var(--border2);background:var(--surface);overflow:hidden}
+.backlog-head{padding:12px 14px 10px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0}
+.backlog-title{font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px}
+.backlog-meta{display:flex;align-items:center;gap:6px}
+.backlog-tasks{flex:1;overflow-y:auto;padding:8px;display:flex;flex-direction:column;gap:0}
+.backlog-tasks::-webkit-scrollbar{width:3px}
+.backlog-tasks::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
 </style>
 </head>
 <body>
 
 <div class="topbar">
-  <div class="logo"><div class="logo-icon">✦</div> Трекер задач</div>
+  <div class="logo"><div class="logo-icon">📋</div> Трекер задач</div>
   <span id="sync-status" style="font-size:12px;transition:color .3s;margin-left:8px"></span>
   <nav class="nav">
     <button class="nav-btn active" onclick="showView('list')">Список</button>
@@ -288,9 +298,11 @@ let state = JSON.parse(localStorage.getItem('tt-state') || 'null') || {
     {id:'p2',name:'Работа',ci:1},
   ],
   days:{},
+  backlog:[],
   filter:'all',
   windowSize:7
 };
+if(!state.backlog)state.backlog=[];
 
 let editId=null, editDay=null, modalDay=null;
 let dragId=null, dragFromDay=null;
@@ -393,8 +405,8 @@ function projColor(id){
   if(p.color)return{c:p.color,bg:hexToBg(p.color)};
   return COLORS[p.ci%COLORS.length];
 }
-function dayTasks(k){return state.days[k]||[]}
-function initDay(k){if(!state.days[k])state.days[k]=[]}
+function dayTasks(k){if(k==='backlog')return state.backlog||[];return state.days[k]||[]}
+function initDay(k){if(k==='backlog'){if(!state.backlog)state.backlog=[];return;}if(!state.days[k])state.days[k]=[];}
 function filteredTasks(tasks){if(state.filter==='all')return tasks;return tasks.filter(t=>t.proj===state.filter||t.taskType===state.filter);}
 function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),2200)}
 
@@ -590,7 +602,9 @@ function openModal(dayKey,taskId){
   editId=taskId||null;
   renderProjSelects();
   document.getElementById('modal-title').textContent=taskId?'Редактировать задачу':'Новая задача';
-  document.getElementById('f-date').value=modalDay;
+  const dateField=document.getElementById('f-date').closest('.modal-field');
+  if(dateField)dateField.style.display=modalDay==='backlog'?'none':'';
+  document.getElementById('f-date').value=modalDay==='backlog'?'':modalDay;
   if(taskId){
     const t=dayTasks(modalDay).find(x=>x.id===taskId);
     if(t){
@@ -617,6 +631,15 @@ function saveTask(){
   const p=document.getElementById('f-proj').value;
   const taskType=document.getElementById('f-tasktype').value;
   const comment=document.getElementById('f-comment').value.trim();
+
+  if(modalDay==='backlog'){
+    if(!state.backlog)state.backlog=[];
+    if(editId){const t=state.backlog.find(x=>x.id===editId);if(t)Object.assign(t,{name,proj:p,taskType,comment});}
+    else{state.backlog.push({id:genId(),name,proj:p,taskType,comment,done:false});}
+    save();closeModal();rerender();toast(editId?'Задача обновлена':'Задача добавлена');
+    return;
+  }
+
   const dateVal=document.getElementById('f-date').value||modalDay;
   initDay(dateVal);
 
@@ -648,6 +671,26 @@ function renderList(){
   const ws=state.windowSize;
   const filterName=state.filter==='all'?'Все задачи':(proj(state.filter)?.name||'');
 
+  const backlogTasks=filteredTasks(state.backlog||[]);
+  let backlogHtml=`<div class="backlog-col"
+    ondragover="event.preventDefault();this.classList.add('drop-target')"
+    ondragleave="this.classList.remove('drop-target')"
+    ondrop="this.classList.remove('drop-target');dropOnBacklog(event)">
+    <div class="backlog-head">
+      <div class="backlog-title">Бэклог</div>
+      <div class="backlog-meta">
+        <span class="day-cnt">${backlogTasks.length} задач</span>
+        <button class="day-add-btn" onclick="openModal('backlog')">+ задача</button>
+      </div>
+    </div>
+    <div class="backlog-tasks" id="ta-backlog">`;
+  if(backlogTasks.length===0){
+    backlogHtml+=`<div class="empty-hint">Нет задач в бэклоге<br>Добавьте или перетащите</div>`;
+  } else {
+    backlogTasks.forEach(t=>{backlogHtml+=taskCardHtml(t,'backlog');});
+  }
+  backlogHtml+=`</div></div>`;
+
   let h=`<div class="list-toolbar">
     <span class="list-title">${filterName}</span>
     <div class="window-ctrl">
@@ -665,6 +708,8 @@ function renderList(){
     <button class="btn-sec" onclick="goToday()">Сегодня</button>
     <button class="btn-add-today" onclick="openModal('${todayKey()}')">+ Задача</button>
   </div>
+  <div class="list-body">
+  ${backlogHtml}
   <div class="kanban-board" id="kanban-board">`;
 
   keys.forEach(key=>{
@@ -703,7 +748,7 @@ function renderList(){
     h+=`</div></div>`;
   });
 
-  h+=`</div>`;
+  h+=`</div></div>`;
   el.innerHTML=h;
 }
 
@@ -734,8 +779,7 @@ function taskCardHtml(t,key){
       <span class="task-name">${t.name}</span>
       <div class="task-actions">
         <button class="task-act-btn" onclick="openModal('${key}','${t.id}')" title="Редактировать">✎</button>
-        <button class="task-act-btn" onclick="moveTaskPrompt('${key}','${t.id}')" title="Перенести">→</button>
-        <button class="task-act-btn del" onclick="delTask('${key}','${t.id}')" title="Удалить">✕</button>
+          <button class="task-act-btn del" onclick="delTask('${key}','${t.id}')" title="Удалить">✕</button>
       </div>
     </div>
     ${t.comment?`<div class="task-comment">${t.comment}</div>`:''}
@@ -747,8 +791,8 @@ function toggleDone(dayKey,id){
   if(t){t.done=!t.done;save();rerender();}
 }
 function delTask(dayKey,id){
-  if(!state.days[dayKey])return;
-  state.days[dayKey]=state.days[dayKey].filter(t=>t.id!==id);
+  if(dayKey==='backlog'){state.backlog=(state.backlog||[]).filter(t=>t.id!==id);}
+  else{if(!state.days[dayKey])return;state.days[dayKey]=state.days[dayKey].filter(t=>t.id!==id);}
   save();rerender();toast('Задача удалена');
 }
 function moveTaskPrompt(fromDay,id){
@@ -796,15 +840,35 @@ function cardDragLeave(cardId){
   document.getElementById('tc-'+cardId)?.classList.remove('drop-above','drop-below');
   dragOverCard=null;
 }
+function dropOnBacklog(e){
+  e.preventDefault();
+  document.querySelectorAll('.drop-target,.drop-above,.drop-below').forEach(x=>x.classList.remove('drop-target','drop-above','drop-below'));
+  if(!dragId||!dragFromDay)return;
+  let t;
+  if(dragFromDay==='backlog'){return;} // already in backlog
+  t=state.days[dragFromDay]?.find(x=>x.id===dragId);
+  if(!t)return;
+  state.days[dragFromDay]=state.days[dragFromDay].filter(x=>x.id!==dragId);
+  if(!state.backlog)state.backlog=[];
+  state.backlog.push(t);
+  save();rerender();toast('Задача перемещена в бэклог');
+}
 function dropOn(e,toDay){
   e.preventDefault();
   document.querySelectorAll('.drop-target,.drop-above,.drop-below').forEach(x=>{
     x.classList.remove('drop-target','drop-above','drop-below');
   });
   if(!dragId||!dragFromDay)return;
-  const t=state.days[dragFromDay]?.find(x=>x.id===dragId);
-  if(!t)return;
-  state.days[dragFromDay]=state.days[dragFromDay].filter(x=>x.id!==dragId);
+  let t;
+  if(dragFromDay==='backlog'){
+    t=(state.backlog||[]).find(x=>x.id===dragId);
+    if(!t)return;
+    state.backlog=state.backlog.filter(x=>x.id!==dragId);
+  } else {
+    t=state.days[dragFromDay]?.find(x=>x.id===dragId);
+    if(!t)return;
+    state.days[dragFromDay]=state.days[dragFromDay].filter(x=>x.id!==dragId);
+  }
   initDay(toDay);
   if(dragOverCard&&toDay===dragFromDay){
     const idx=state.days[toDay].findIndex(x=>x.id===dragOverCard);
